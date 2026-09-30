@@ -1,0 +1,209 @@
+name: Generate and Obfuscate Worker Script
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "**"
+    paths:
+      - "source"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build-and-obfuscate:
+    runs-on: ubuntu-26.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Initialize npm project
+        run: |
+          if [ ! -f package.json ]; then
+            npm init -y
+          fi
+
+      - name: Install Obfuscator
+        run: |
+          npm install --save-exact javascript-obfuscator
+
+      - name: Obfuscate from local source file
+        run: |
+          cat > obfuscate.js << 'EOF'
+          const JavaScriptObfuscator = require('javascript-obfuscator');
+          const fs = require('fs');
+          const path = require('path');
+
+          const sourceFileName = 'source';
+          const outputFileName = 'target';
+
+          const sourceFilePath = path.join(
+            process.cwd(),
+            sourceFileName
+          );
+
+          const outputFilePath = path.join(
+            process.cwd(),
+            outputFileName
+          );
+
+          if (!fs.existsSync(sourceFilePath)) {
+            console.error(
+              '错误：未找到源文件：' + sourceFilePath
+            );
+            process.exit(1);
+          }
+
+          const originalCode = fs.readFileSync(
+            sourceFilePath,
+            'utf8'
+          );
+
+          if (
+            !originalCode ||
+            originalCode.trim().length === 0
+          ) {
+            console.error('错误：源文件为空。');
+            process.exit(1);
+          }
+
+          const obfuscationOptions = {
+            compact: true,
+
+            controlFlowFlattening: false,
+            controlFlowFlatteningThreshold: 0,
+
+            deadCodeInjection: false,
+
+            stringArray: true,
+            stringArrayEncoding: ['base64'],
+            stringArrayThreshold: 1.0,
+            stringArrayRotate: true,
+            stringArrayShuffle: true,
+
+            stringArrayWrappersCount: 2,
+            stringArrayWrappersChainedCalls: false,
+            stringArrayWrappersParametersMaxCount: 3,
+
+            renameGlobals: true,
+            identifierNamesGenerator: 'mangled-shuffled',
+            identifierNamesCache: null,
+            identifiersPrefix: '',
+
+            renameProperties: false,
+            renamePropertiesMode: 'safe',
+
+            ignoreImports: false,
+
+            target: 'browser',
+
+            numbersToExpressions: false,
+            simplify: false,
+
+            splitStrings: true,
+            splitStringsChunkLength: 1,
+
+            transformObjectKeys: false,
+
+            unicodeEscapeSequence: true,
+
+            selfDefending: false,
+
+            debugProtection: false,
+            debugProtectionInterval: 0,
+
+            disableConsoleOutput: true,
+
+            domainLock: []
+          };
+
+          console.log('==============================');
+          console.log('开始混淆');
+          console.log('Node.js:', process.version);
+          console.log('==============================');
+
+          let obfuscatedCode;
+
+          try {
+            obfuscatedCode =
+              JavaScriptObfuscator
+                .obfuscate(
+                  originalCode,
+                  obfuscationOptions
+                )
+                .getObfuscatedCode();
+          } catch (error) {
+            console.error('混淆失败：');
+            console.error(error);
+            process.exit(1);
+          }
+
+          if (
+            !obfuscatedCode ||
+            obfuscatedCode.trim().length === 0
+          ) {
+            console.error('错误：混淆结果为空。');
+            process.exit(1);
+          }
+
+          fs.writeFileSync(
+            outputFilePath,
+            obfuscatedCode,
+            'utf8'
+          );
+
+          console.log('==============================');
+          console.log(
+            '混淆完成：' + outputFileName
+          );
+          console.log(
+            '输出大小：' +
+            fs.statSync(outputFilePath).size +
+            ' bytes'
+          );
+          console.log('==============================');
+          EOF
+
+          node obfuscate.js
+
+      - name: Check generated file
+        run: |
+          if [ ! -f target ]; then
+            echo "错误：target 文件不存在"
+            exit 1
+          fi
+
+          echo "target 文件生成成功："
+          ls -lh target
+
+      - name: Commit and push the obfuscated file
+        run: |
+          set -e
+
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add target
+
+          if git diff --cached --quiet; then
+            echo "target 没有变化，不需要提交。"
+            exit 0
+          fi
+
+          git commit -m "1"
+
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+          echo "推送完成。"
