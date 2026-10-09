@@ -4,40 +4,25 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "**"
+      - '**'  # 仅匹配分支推送，排除标签推送
     paths:
-      - "source"
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      - '明文源吗'
 
 jobs:
   build-and-obfuscate:
     runs-on: ubuntu-26.04
 
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
-
-      - name: Initialize npm project
-        run: |
-          if [ ! -f package.json ]; then
-            npm init -y
-          fi
+          node-version: '24'
 
       - name: Install Obfuscator
-        run: |
-          npm install --save-exact javascript-obfuscator
+        run: npm install javascript-obfuscator
 
       - name: Obfuscate from local source file
         run: |
@@ -45,165 +30,72 @@ jobs:
           const JavaScriptObfuscator = require('javascript-obfuscator');
           const fs = require('fs');
           const path = require('path');
-
-          const sourceFileName = 'source';
-          const outputFileName = 'target';
-
-          const sourceFilePath = path.join(
-            process.cwd(),
-            sourceFileName
-          );
-
-          const outputFilePath = path.join(
-            process.cwd(),
-            outputFileName
-          );
+          
+          const sourceFileName = '明文源吗';
+          const outputFileName = '少年你相信光吗';
+          const sourceFilePath = path.join(process.cwd(), sourceFileName);
 
           if (!fs.existsSync(sourceFilePath)) {
-            console.error(
-              '错误：未找到源文件：' + sourceFilePath
-            );
+            console.error('错误：在路径 \'' + sourceFilePath + '\' 未找到源文件。请确保您的仓库根目录有名为 \'明文源吗\' 的文件。');
             process.exit(1);
           }
 
-          const originalCode = fs.readFileSync(
-            sourceFilePath,
-            'utf8'
-          );
+          const originalCode = fs.readFileSync(sourceFilePath, 'utf8');
 
-          if (
-            !originalCode ||
-            originalCode.trim().length === 0
-          ) {
-            console.error('错误：源文件为空。');
+          if (!originalCode || originalCode.trim().length === 0) {
+            console.error('错误：源文件 ' + sourceFileName + ' 为空。');
             process.exit(1);
           }
 
           const obfuscationOptions = {
-            compact: true,
-
-            controlFlowFlattening: false,
-            controlFlowFlatteningThreshold: 0,
-
-            deadCodeInjection: false,
-
-            stringArray: true,
-            stringArrayEncoding: ['base64'],
-            stringArrayThreshold: 1.0,
-            stringArrayRotate: true,
-            stringArrayShuffle: true,
-
-            stringArrayWrappersCount: 2,
-            stringArrayWrappersChainedCalls: false,
-            stringArrayWrappersParametersMaxCount: 3,
-
-            renameGlobals: true,
-            identifierNamesGenerator: 'mangled-shuffled',
-            identifierNamesCache: null,
-            identifiersPrefix: '',
-
-            renameProperties: false,
-            renamePropertiesMode: 'safe',
-
-            ignoreImports: false,
-
-            target: 'browser',
-
-            numbersToExpressions: false,
-            simplify: false,
-
-            splitStrings: true,
-            splitStringsChunkLength: 1,
-
-            transformObjectKeys: false,
-
-            unicodeEscapeSequence: true,
-
-            selfDefending: false,
-
-            debugProtection: false,
-            debugProtectionInterval: 0,
-
-            disableConsoleOutput: true,
-
-            domainLock: []
+              compact: true,
+              controlFlowFlattening: false,
+              controlFlowFlatteningThreshold: 0,
+              deadCodeInjection: false,
+              stringArray: true,
+              stringArrayEncoding: ['base64'],
+              stringArrayThreshold: 1.0,
+              stringArrayRotate: true,
+              stringArrayShuffle: true,
+              stringArrayWrappersCount: 2,
+              stringArrayWrappersChainedCalls: false,
+              stringArrayWrappersParametersMaxCount: 3,
+              renameGlobals: true,
+              identifierNamesGenerator: 'mangled-shuffled',
+              identifierNamesCache: null,
+              identifiersPrefix: '',
+              renameProperties: false,
+              renamePropertiesMode: 'safe',
+              ignoreImports: false,
+              target: 'browser',
+              numbersToExpressions: false,
+              simplify: false,
+              splitStrings: true,
+              splitStringsChunkLength: 1,
+              transformObjectKeys: false,
+              unicodeEscapeSequence: true,
+              selfDefending: false,
+              debugProtection: false,
+              debugProtectionInterval: 0,
+              disableConsoleOutput: false,
+              domainLock: []
           };
 
-          console.log('==============================');
-          console.log('开始混淆');
-          console.log('Node.js:', process.version);
-          console.log('==============================');
-
-          let obfuscatedCode;
-
-          try {
-            obfuscatedCode =
-              JavaScriptObfuscator
-                .obfuscate(
-                  originalCode,
-                  obfuscationOptions
-                )
-                .getObfuscatedCode();
-          } catch (error) {
-            console.error('混淆失败：');
-            console.error(error);
-            process.exit(1);
-          }
-
-          if (
-            !obfuscatedCode ||
-            obfuscatedCode.trim().length === 0
-          ) {
-            console.error('错误：混淆结果为空。');
-            process.exit(1);
-          }
-
-          fs.writeFileSync(
-            outputFilePath,
-            obfuscatedCode,
-            'utf8'
-          );
-
-          console.log('==============================');
-          console.log(
-            '混淆完成：' + outputFileName
-          );
-          console.log(
-            '输出大小：' +
-            fs.statSync(outputFilePath).size +
-            ' bytes'
-          );
-          console.log('==============================');
+          const obfuscatedCode = JavaScriptObfuscator.obfuscate(originalCode, obfuscationOptions).getObfuscatedCode();
+          
+          fs.writeFileSync(path.join(process.cwd(), outputFileName), obfuscatedCode, 'utf8');
+          console.log('成功将 \'' + sourceFileName + '\' 混淆并保存至 \'' + outputFileName + '\'。');
           EOF
-
           node obfuscate.js
-
-      - name: Check generated file
-        run: |
-          if [ ! -f target ]; then
-            echo "错误：target 文件不存在"
-            exit 1
-          fi
-
-          echo "target 文件生成成功："
-          ls -lh target
 
       - name: Commit and push the obfuscated file
         run: |
-          set -e
-
-          git config user.name "GitHub Actions Bot"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add target
-
-          if git diff --cached --quiet; then
-            echo "target 没有变化，不需要提交。"
-            exit 0
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add '少年你相信光吗'
+          if git diff --staged --quiet; then
+            echo "No changes to commit, the obfuscated file is already up-to-date."
+          else
+            git commit -m "部署用这个"
+            git push
           fi
-
-          git commit -m "1"
-
-          git push origin HEAD:${GITHUB_REF_NAME}
-
-          echo "推送完成。"
